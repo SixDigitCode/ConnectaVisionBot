@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/socket.io/game_client.js"></script>
+    <script>
+        var socket = io();
+
+
+        socket.on('connect', (data) => {
+            console.log("Sending registration");
+            console.log("Player ID: " + playerID);
+            var playerID = getURLAttr("session");
+            //TODO: Handle error if URL attr is not found
+            socket.emit("register", playerID);
+        });
+
+        socket.on('register_status', (status) => {
+            // document.write(JSON.stringify(status));
+            if (status.err_code !== 0) {
+                alert(JSON.stringify(status));
+            }
+        });
+
+        socket.on('receive_message', (message) => {
+            // document.write("Received game message " + message);
+            // if (message.err_code !== 0) {
+            //     alert(message);
+            // }
+            document.body.innerHTML += "<br>" + message;
+        });
+
+        socket.on('players', (players) => {
+            console.log(players);
+        });
+        //TODO: Keep track of game short name along with database entries
+        function sendchat() {
+            var message = document.getElementById("chatbox").value;
+            socket.emit('chat_message', message);
+            //i.e. player_move should work too
+        }
+        //TODO: Add a "board update" message where the server sends client the entire game board plus what was changed.
+        //      Client animates what was changed and then switches to entire board (should be seamless but helps guard against errors)
+
+        function setGameBoard(game_board_rows) {
+            for (var i = 0; i < game_board_rows.length; i++) {
+                for (var j = 0; j < game_board_rows[i].length; j++) {
+                    var query = "td[data-x='" + j + "'][data-y='" + i + "']";
+                    var elem = document.querySelector(query);
+                    elem.innerHTML = game_board_rows[i][j];
+                }
+            }
+        }
+        window.onload = function() {
+            setGameBoard([
+                [0, 0, 0],
+                [0, 1, 0],
+                [0, 1, 1]
+            ]);
+        }
+    </script>
+    <style>
+        table {
+            border: 1px solid black;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+
+        tr {
+            line-height: 50px;
+            height: 50px;
+        }
+
+        td {
+            border: 1px solid black;
+            min-width: 50px;
+            min-height: 50px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <input type="text" id="chatbox"><input type="button" value="Send" onclick="sendchat();">
+
+    <table>
+        <tr>
+            <td data-x="0" data-y="0"></td>
+            <td data-x="1" data-y="0"></td>
+            <td data-x="2" data-y="0"></td>
+        </tr>
+        <tr>
+            <td data-x="0" data-y="1"></td>
+            <td data-x="1" data-y="1"></td>
+            <td data-x="2" data-y="1"></td>
+        </tr>
+        <tr>
+            <td data-x="0" data-y="2"></td>
+            <td data-x="1" data-y="2"></td>
+            <td data-x="2" data-y="2"></td>
+        </tr>
+    </table>
+</body>
+
+</html>

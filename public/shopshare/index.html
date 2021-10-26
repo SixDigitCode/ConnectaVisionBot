@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
+    <script src="../socket.io/socket.io.js"></script>
+    <script src="../game_client.js"></script>
+    <style>
+        body {
+            background-color: #EEE;
+            padding-bottom: 2.5em;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .registration_notice {
+            backdrop-filter: blur(1vw);
+            background: rgba(255, 255, 255, 0.5);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            height: 100vh;
+            box-sizing: border-box;
+            padding: 10vw;
+            /* color: white; */
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999999999999999999999;
+        }
+
+        .registration_error {
+            /* color: white; */
+            color: black;
+            font-family: sans-serif;
+            font-size: 1.7em;
+            text-align: center;
+        }
+
+        .doneheader {
+            font-family: sans-serif;
+            font-weight: normal;
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        .items_done {
+            margin-top: 3em;
+        }
+
+        .item {
+            /* border: 1px solid gray; */
+            /* border: 1px solid rgba(0, 0, 0, 0.2); */
+            background-color: white;
+            width: auto;
+
+            font-family: sans-serif;
+            border-radius: 1.1em;
+            cursor: pointer;
+            font-size: 1.1em;
+            box-shadow: 0px 3px 5px rgba(0, 0, 0, 0.1);
+            /* box-shadow: 10px 10px 10px #F00; */
+            overflow: hidden;
+            /* position: relative; */
+            margin-bottom: 0.8em;
+
+            /* padding-bottom: 2em; */
+
+            -webkit-touch-callout: none;
+            /* iOS Safari */
+            -webkit-user-select: none;
+            /* Safari */
+            -khtml-user-select: none;
+            /* Konqueror HTML */
+            -moz-user-select: none;
+            /* Old versions of Firefox */
+            -ms-user-select: none;
+            /* Internet Explorer/Edge */
+            user-select: none;
+            /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
+
+            transition: 0.5s;
+            display: block;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .item .item_top {
+            display: flex;
+        }
+
+        .item.done {
+            opacity: 0.5;
+        }
+
+        .item * {
+            z-index: 2;
+        }
+
+        .item::before {
+            transition: 0.5s;
+            /* background-color: #9ed3ff; */
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#9ed3ff+0,9ed3ff+100&1+0,1+90,0+100 */
+            background: -moz-linear-gradient(left, rgba(158, 211, 255, 1) 0%, rgba(158, 211, 255, 1) 90%, rgba(158, 211, 255, 0) 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(left, rgba(158, 211, 255, 1) 0%, rgba(158, 211, 255, 1) 90%, rgba(158, 211, 255, 0) 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to right, rgba(158, 211, 255, 1) 0%, rgba(158, 211, 255, 1) 90%, rgba(158, 211, 255, 0) 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#9ed3ff', endColorstr='#009ed3ff', GradientType=1);
+            /* IE6-9 */
+
+            content: ".";
+            position: absolute;
+            color: rgba(0, 0, 0, 0);
+            width: 110%;
+            left: -110%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.7;
+        }
+
+        /* .item.claimed:not(.you)::before { */
+        .item.done:not(.completedbyyou)::before {
+            background: none;
+        }
+
+        .item.done::before {
+            /* width: 100%; */
+            left: 0;
+            opacity: 1;
+            z-index: -1;
+        }
+
+        .item.claimed {
+            /* background-color: #caffc9; */
+        }
+
+        .checkbox {
+            /* display: inline; */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 2.2em;
+            height: 2.2em;
+            /* border: 1px solid black; */
+            border: 1px solid #8c8c8c;
+            display: block;
+            border-radius: 999em;
+            cursor: pointer;
+            background: white;
+
+            box-shadow: inset 0 0 10px rgba(130, 203, 255, 0.3);
+            transition: 0.1s;
+            position: relative;
+            background: rgba(255, 255, 255, 0);
+
+            margin: auto 0;
+            margin-left: 0.4em;
+        }
+
+        /* .item.claimed:not(.you) .checkbox { */
+        .item.claimed:not(.you) .checkbox {
+            box-shadow: none;
+        }
+
+        .checkbox::before {
+            content: ".";
+            color: rgba(0, 0, 0, 0);
+            background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjRweCIgdmlld0JveD0iMCAwIDI0IDI0IiB3aWR0aD0iMjRweCIgZmlsbD0iI0ZGRkZGRiI+PHBhdGggZD0iTTAgMGgyNHYyNEgwVjB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTkgMTYuMkw0LjggMTJsLTEuNCAxLjRMOSAxOSAyMSA3bC0xLjQtMS40TDkgMTYuMnoiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg0K");
+            background-size: 80% 80%;
+            background-position: center;
+            background-repeat: no-repeat;
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: absolute;
+            top: 20%;
+            opacity: 0;
+            transition: 0.4s;
+        }
+
+
+
+        .checkbox:checked::before {
+            top: 0;
+            opacity: 1;
+            transition: 0.4s;
+        }
+
+        .checkbox:checked {
+            background: #248DC1;
+            border-color: #248DC1;
+        }
+
+        /* .item.claimed:not(.you) .checkbox:checked { */
+        .item.done:not(.completedbyyou) .checkbox:checked {
+            background: #8a8a8a;
+            border-color: #8a8a8a;
+        }
+
+        .itemname {
+            /* display: inline; */
+            flex: 1;
+            padding: 0.5em;
+        }
+
+        .quantitychip {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0.2em 0.5em;
+            display: inline-block;
+            font-size: 0.9em;
+            border-radius: 99999em;
+            /* font-weight: 600; */
+        }
+
+        .quantitychip::before {
+            content: "x";
+            opacity: 0.5;
+            /* margin-right: 0.1em; */
+        }
+
+        .assignee {
+            display: block;
+            padding: 0em 0.5em;
+            font-size: 0.85em;
+            border-left: 1px solid grey;
+            /* height: 100%; */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 4em;
+            text-align: center;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .assignee.claimed {
+            color: white;
+            /* background-color: #299A0B; */
+
+            border-left-color: #2F6627;
+        }
+
+        .assignee::before {
+            content: ".";
+            color: rgba(0, 0, 0, 0);
+            /* background-color: #299A0B; */
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+            z-index: -10;
+            opacity: 0;
+            transition: 0.3s;
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#5fc65f+0,4da841+100 */
+            background: #5fc65f;
+            /* Old browsers */
+            background: -moz-radial-gradient(center, ellipse cover, #5fc65f 0%, #4da841 100%);
+            /* FF3.6-15 */
+            background: -webkit-radial-gradient(center, ellipse cover, #5fc65f 0%, #4da841 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: radial-gradient(ellipse at center, #5fc65f 0%, #4da841 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#5fc65f', endColorstr='#4da841', GradientType=1);
+            /* IE6-9 fallback on horizontal gradient */
+
+        }
+
+        .assignee.claimed::before {
+            opacity: 1;
+        }
+
+        .addedby {
+            opacity: 0.7;
+            font-size: 0.7em;
+        }
+
+        .claimedby {
+            /* border: 1px solid #444; */
+            /* color: #444; */
+            background-color: #444;
+            color: white;
+            padding: 0.5em 0.7em;
+            /* border-radius: 99999px; */
+            width: fit-content;
+            /* margin-top: 0.2em; */
+            /* position: absolute; */
+            width: 100%;
+            /* bottom: 0; */
+            /* left: 0; */
+            /* z-index: 1000; */
+        }
+
+        .item.claimed .claimedby {
+            background-color: #CCC;
+            /* border-top: 1px solid #444; */
+            color: #444;
+        }
+
+        .item.claimed.you .claimedby {
+            background-color: #23992E;
+            color: white;
+            box-shadow: inset 0px 0px 10px rgba(24, 104, 30, 0.8);
+            box-sizing: border-box;
+            border-radius: 0px 0px 1em 1em;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 3em;
+            background-color: #EEE;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+            z-index: 999999999999;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+
+        .footer_button {
+            background-color: #CCC;
+            width: 8em;
+            text-align: center;
+            padding: 0.5em;
+            font-family: sans-serif;
+            border-radius: 99999em;
+            cursor: pointer;
+            -webkit-touch-callout: none;
+            /* iOS Safari */
+            -webkit-user-select: none;
+            /* Safari */
+            -khtml-user-select: none;
+            /* Konqueror HTML */
+            -moz-user-select: none;
+            /* Old versions of Firefox */
+            -ms-user-select: none;
+            /* Internet Explorer/Edge */
+            user-select: none;
+            /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
+        }
+
+        @keyframes buttonpress {
+            0% {
+                background-color: #999;
+            }
+
+            100% {
+                background-color: #CCC;
+            }
+        }
+
+        .animatefadeout {
+            animation: buttonpress 0.5s;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+        }
+
+        .add_item_screen {
+            background-color: #EEE;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999999999999;
+            display: flex;
+            flex-direction: column;
+            transition: top 0.2s, opacity 0.3s;
+        }
+
+        .add_item_screen.hidden {
+            top: 10vh;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .add_item_screen .results {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        @keyframes slide-in-out {
+            0% {
+                transform: translateY(2em);
+            }
+
+            20% {
+                transform: translateY(0em);
+            }
+
+            80% {
+                transform: translateY(0em);
+            }
+
+            100% {
+                transform: translateY(2em);
+            }
+        }
+
+        .add_item_screen .results::after {
+            position: fixed;
+            content: "Added item to shopping list";
+            bottom: 3rem;
+            z-index: 1;
+            background: rgba(120, 204, 116, 1);
+            width: 100%;
+            font-size: 0.8em;
+            left: 0;
+            box-sizing: border-box;
+            text-align: center;
+            font-family: sans-serif;
+            padding: 0.2em;
+            transform: translateY(2em);
+        }
+
+        .add_item_screen.justadded .results::after {
+            animation: slide-in-out 1.5s;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+        }
+
+        .add_item_screen .topbar,
+        .add_item_screen .textfield {
+            /* background: red; */
+            box-shadow: 0px 0px 10px rgb(0 0 0 / 20%);
+            background: white;
+            height: 3em;
+            box-sizing: border-box;
+            z-index: 2;
+        }
+
+        /* TODO: Dark mode */
+
+        .topbar {
+            display: flex;
+            padding: 0.5em;
+            align-items: center;
+            justify-content: center;
+
+            /* box-sizing: border-box; */
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        .topbar .title {
+            font-size: 1.1em;
+            flex: 1;
+            text-align: center;
+        }
+
+        .topbar .closebtn {
+            background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjRweCIgdmlld0JveD0iMCAwIDI0IDI0IiB3aWR0aD0iMjRweCIgZmlsbD0iI0ZGRkZGRiI+PHBhdGggZD0iTTAgMGgyNHYyNEgwVjB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTE5IDYuNDFMMTcuNTkgNSAxMiAxMC41OSA2LjQxIDUgNSA2LjQxIDEwLjU5IDEyIDUgMTcuNTkgNi40MSAxOSAxMiAxMy40MSAxNy41OSAxOSAxOSAxNy41OSAxMy40MSAxMiAxOSA2LjQxeiIgc3Ryb2tlPSIjNTU1NTU1IiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4NCg==);
+            display: block;
+            width: 1.5em;
+            height: 1.5em;
+            background-position: center;
+            background-size: contain;
+            background-repeat: no-repeat;
+            color: rgba(0, 0, 0, 0);
+            user-select: none;
+            cursor: pointer;
+            position: absolute;
+            right: 0.8em;
+        }
+
+        .textfield {
+            display: flex;
+            padding: 0.4em;
+            /* font-size: 12.5em; */
+        }
+
+        #searchbar,
+        input[type=number] {
+            box-sizing: border-box;
+            border: 1.5px solid #CCC;
+            /* border-radius: 0.5em 0em 0em 0.5em; */
+            border-radius: 0.5em;
+            font-size: 1.1em;
+            padding-left: 0.3em;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        .textfield #searchbar:focus,
+        .textfield input:focus {
+            border: 2px solid #248DC1;
+        }
+
+        input[type=number] {
+            width: 2.5em;
+            margin-left: 0.3em;
+        }
+
+        #searchbar {
+            width: auto;
+            flex: 1;
+
+        }
+
+        .textfield .addbutton {
+            border: none;
+            width: 5em;
+            background-color: #CCC;
+            text-align: center;
+            padding: 0.5em;
+            font-family: sans-serif;
+            border-radius: 0em 0.5em 0.5em 0em;
+            cursor: pointer;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .results {
+            padding: 0.7em;
+            box-sizing: border-box;
+        }
+
+        .result {
+            display: flex;
+            box-sizing: border-box;
+            padding: 0.8em;
+            padding-right: 3em;
+            background-color: white;
+            border-radius: 1em;
+            font-family: sans-serif;
+            margin-bottom: 0.8em;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            align-items: center;
+            position: relative;
+        }
+
+        .resulttext {
+            flex: 1;
+        }
+
+        .result .removebutton {
+            background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjRweCIgdmlld0JveD0iMCAwIDI0IDI0IiB3aWR0aD0iMjRweCIgZmlsbD0iI0ZGRkZGRiI+PHBhdGggZD0iTTAgMGgyNHYyNEgwVjB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTE5IDYuNDFMMTcuNTkgNSAxMiAxMC41OSA2LjQxIDUgNSA2LjQxIDEwLjU5IDEyIDUgMTcuNTkgNi40MSAxOSAxMiAxMy40MSAxNy41OSAxOSAxOSAxNy41OSAxMy40MSAxMiAxOSA2LjQxeiIgc3Ryb2tlPSIjNTU1NTU1IiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4NCg==);
+            background-size: 60%;
+            background-repeat: no-repeat;
+            background-position: center;
+            width: 2.5em;
+            /* border: 1px dotted red; */
+            height: 2.5em;
+            position: absolute;
+            right: 0;
+            color: rgba(0, 0, 0, 0);
+            margin-left: 0.5em;
+            opacity: 0.6;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<!-- TODO: Don't claim-click the item if it's checked off -->
+
+<body>
+    <div class="items">
+    </div>
+
+    <div class="footer">
+        <div class="footer_button_wrapper">
+            <div class="footer_button" data-action="clearchecked" onmousedown="handleBottomButtonPress(event);">
+                Clear checked
+            </div>
+        </div>
+        <!-- <div class="footer_button_wrapper">
+    <div class="footer_button">
+
+    </div>
+</div> -->
+        <div class="footer_button_wrapper">
+            <div class="footer_button" data-action="add" onmousedown="handleBottomButtonPress(event);">
+                Add
+            </div>
+        </div>
+    </div>
+
+    <div class="add_item_screen hidden">
+
+        <div class="topbar"><span class="title">Add an item</span>
+            <div class="closebtn" onmousedown="handleAddItemCloseButtonPress(event);">X</div>
+        </div>
+        <div class="results">
+            <div class="result">
+                <div class="resulttext">Eggs</div>
+                <div class="removebutton">X</div>
+            </div>
+            <div class="result">
+                <div class="resulttext">Eggs and here is a relaly long one to see if the browser displays this as inteneded</div>
+                <div class="removebutton">X</div>
+            </div>
+        </div>
+        <div class="textfield">
+            <input type="text" tabindex="1" id="searchbar" placeholder="Add an item" oninput="handleTextEntryChange(event);" onkeydown="handleTextEntryKeydown(event);">
+            <input type="number" id="quantity" onkeydown="handleTextEntryKeydown(event);" tabindex="2" value="1" min="1">
+            <!-- <button class="addbutton">Add</button> -->
+        </div>
+    </div>
+
+    <div class="registration_notice" style="display: none;">
+        <span class="registration_error">
+
+        </span>
+    </div>
+
+
+
+    <script>
+        var gameStateUpdateTime = 0;
+
+        function onCheckboxChange(e) {
+            console.log("Checkbox changed");
+            console.log(e.target.parentElement.parentElement);
+            // console.log(e.target.checked);
+            if (e.target.checked) {
+                e.target.parentElement.parentElement.classList.add("done");
+                e.target.parentElement.parentElement.classList.add("completedbyyou");
+            } else {
+                e.target.parentElement.parentElement.classList.remove("done");
+            }
+            gameStateUpdateTime = Date.now() + 550;
+            // setTimeout(() => {
+            setDoneStatus(e.target.parentElement.parentElement.dataset.id, (e.target.checked ? 1 : 0))
+            // }, 550);
+            //TODO: Make the animation work when the gamestate is refreshed. The gamestate
+            //      refreshes right after the done status is set so the animation doesn't
+            //      have time to animate
+
+            //TODO: Mark done/undone
+            //
+            // GameClient.sendMessage({
+            // "type": "markdone",
+            // "isdone": e.target.checked,
+            // "id": e.target.parentElement.dataset.id
+            // });
+        }
+        var gameState = {
+            users: [{
+                first_name: "Test",
+                last_name: "Wahoo",
+                playernum: 0
+            }, {
+                first_name: "Another",
+                last_name: "Test",
+                playernum: 1
+            }],
+            items: [{
+                "id": 1,
+                "name": "Flour",
+                "assignee": 0, //User index
+                "createdby": 0,
+                "quantity": 2,
+                "donestatus": 0 //0: not done, 1: checked, 2: cleared
+            }, {
+                "id": 1,
+                "name": "Sugar or something",
+                "assignee": 1, //User index
+                "createdby": 1,
+                "quantity": 2,
+                "donestatus": 0 //0: not done, 1: checked, 2: cleared
+            }, {
+                "id": 1,
+                "name": "Eggs",
+                "assignee": null, //User index
+                "createdby": 1,
+                "quantity": 2,
+                "donestatus": 0 //0: not done, 1: checked, 2: cleared
+            }]
+        };
+
+        var player = {
+            first_name: "Test",
+            last_name: "Wahoo",
+            playernum: 0
+        };
+
+        function updateGroceryItems() {
+            //When adding items, add data-id to the parent
+            //on clicking a button, re-order all the things so claimed stuff is on top?
+            document.querySelector(".items").innerHTML = null;
+            for (var i = 0; i < gameState.items.length; i++) {
+                //TODO: Incorporate completedby to determine whether the checkmark is green or gray
+
+                // console.log(gameState.items[i]);
+                var addedby = "Added by " + formatPlayerName("firstlast", gameState.users[gameState.items[i].createdby]);
+                if (gameState.items[i].createdby == player.playernum) {
+                    addedby = "Added by you";
+                }
+
+                if (gameState.items[i].donestatus == 1) {
+                    if (gameState.items[i].completedby == player.playernum) {
+                        addedby += ", completed by you";
+                    } else {
+                        addedby += ", completed by " + formatPlayerName("firstlast", gameState.users[gameState.items[i].completedby]);
+                    }
+                }
+
+                var claimclassname = "claimedby";
+                var claimtext = "Unknown";
+
+                var itemclassname = "item";
+
+                checkboxCheckedAttr = "";
+
+                if (gameState.items[i].assignee == null) {
+                    // claimclassname = "assignee";
+                    claimtext = "Claim this item";
+                } else {
+                    itemclassname += " claimed";
+                    if (gameState.items[i].assignee == player.playernum) {
+                        claimclassname += " you";
+                        itemclassname += " you";
+                        claimtext = "You claimed this item";
+                    } else {
+                        claimtext = "Claimed by " + formatPlayerName("firstlast", gameState.users[gameState.items[i].assignee]);
+                    }
+                }
+
+                if (gameState.items[i].donestatus == 1) {
+                    itemclassname += " done";
+                    checkboxCheckedAttr = "checked";
+                    console.log(gameState.items[i].completedby);
+                    if (gameState.items[i].completedby == player.playernum) {
+                        itemclassname += " completedbyyou";
+                    }
+                }
+
+                var html = `<div class="${itemclassname}" data-id="${gameState.items[i].id}" data-index="${i}">
+                        <label class="item_top">
+                            <input type="checkbox" ${checkboxCheckedAttr} class="checkbox" onchange="onCheckboxChange(event);">
+                            <div class="itemname">${gameState.items[i].name}
+                                <span class="quantitychip">${gameState.items[i].quantity}</span>
+                                <div class="addedby">${addedby}</div>
+                            </div>
+                        </label>
+                        <div class="${claimclassname}" onclick="claimClick(event);">${claimtext}</div>
+                    </div>`;
+
+                document.querySelector(".items").innerHTML += html;
+            }
+        }
+        //TODO: Maybe prevent adding duplicates?
+
+        function claimClick(e) {
+            // console.log(e.target);
+            // if (e.target.)
+            var targetID = e.target.parentElement.dataset.id;
+            var targetIndex = e.target.parentElement.dataset.index;
+
+            // if (gameState.)
+            // var targetItem = null;
+            // for (var i = 0; i < gameState.items.length; i++) {
+            //     if (gameState.items[i].id == targetID) {
+            //         targetItem = gameState.items[i];
+            //         break;
+            //     }
+            // }
+            targetItem = gameState.items[targetIndex];
+
+            if (targetItem.donestatus !== 0) {
+                return; //You can't claim an item that's done
+            }
+
+            if (targetItem.assignee == null) {
+                GameClient.sendMessage({
+                    "type": "claim",
+                    "id": targetItem.id,
+                    "assignto": player.playernum
+                });
+            } else {
+                GameClient.sendMessage({
+                    "type": "claim",
+                    "id": targetItem.id,
+                    "assignto": null
+                });
+            }
+            e.preventDefault();
+        }
+        //TODO: Store item data inside dataset of parent??
+
+        function formatPlayerName(type, player) {
+            var firstName = player.first_name ? player.first_name : "";
+            var lastName = player.last_name ? player.last_name : "";
+            var lastInitial = player.last_name ? lastName.substring(0, 1).toUpperCase + "." : "";
+            if (type == "first") {
+                return firstName;
+            } else if (type == "last") {
+                return lastName;
+            } else if (type == "firstlast") {
+                return firstName + (player.last_name ? (" " + lastName) : "");
+            } else if (type == "firstinitial") {
+                return firstName + (player.last_name ? (" " + lastInitial) : "");
+            }
+        }
+
+        function getImageURLForPlayer(player) {
+            return "../profilepic?sessionid=" + getURLAttr("session") + "&userid=" + player.user_id;
+        }
+
+        var gameStateTimeout;
+
+        // var timeoutPromise = function(ms) {
+        //     return new Promise(function(resolve, reject) {
+        //         setTimeout(resolve, ms);
+        //     });
+        // }
+
+        async function processGameStateUpdate() {
+            var timeUntilRun = gameStateUpdateTime - Date.now();
+            clearInterval(gameStateTimeout); //If gameStates collide, only process the newer one
+            if (timeUntilRun <= 0) {
+                updateGroceryItems();
+            } else {
+                gameStateTimeout = setInterval(() => {
+                    var timeUntilRun = gameStateUpdateTime - Date.now();
+                    if (timeUntilRun <= 0) {
+                        console.log(timeUntilRun);
+                        updateGroceryItems();
+                        clearInterval(gameStateTimeout);
+                    }
+                }, 30);
+            }
+        }
+
+        function addListItem(item_name, qty) {
+            GameClient.sendMessage({
+                "type": "newitem",
+                "name": item_name,
+                "quantity": qty
+            });
+        }
+
+        function removeListItems(item_ids) {
+            GameClient.sendMessage({
+                "type": "delete",
+                "items": item_ids
+            })
+        }
+
+        function setDoneStatus(item_id, done_status) {
+            GameClient.sendMessage({
+                "type": "donestatus",
+                "id": item_id,
+                "status": done_status
+            });
+        }
+        //TODO: Add "assign to someone" button next to claim button?
+
+        function handleBottomButtonPress(e) {
+            e.target.classList.remove("animatefadeout");
+            e.target.classList.add("animatefadeout");
+            setTimeout(() => {
+                e.target.classList.remove("animatefadeout");
+            }, 500);
+
+            if (e.target.dataset.action == "clearchecked") {
+                var shouldContinue = confirm("Are you sure you want to delete all checkmarked items?");
+                if (!shouldContinue) {
+                    return;
+                }
+                clearChecked();
+            } else if (e.target.dataset.action == "add") {
+                //Add an item
+                document.querySelector(".add_item_screen").classList.remove("hidden");
+            }
+        }
+
+        function handleAddItemCloseButtonPress(e) {
+            document.querySelector(".add_item_screen").classList.add("hidden");
+        }
+
+        function clearChecked() {
+            console.log("Clearing checked");
+            GameClient.sendMessage({
+                "type": "clearchecked"
+            });
+        }
+        //TODO: Add quantity
+
+        var suggestionsList = ["Eggs", "tacos", "I don't know", "Refried beans", "Refried beens"];
+
+        function generateSuggestionsList(query) {
+            var matches = [];
+            for (var i = 0; i < suggestionsList.length; i++) {
+                // console.log(suggestionsList[i].toLowerCase());
+                if (suggestionsList[i].toLowerCase().indexOf(query.toLowerCase()) > -1) {
+                    matches.push(suggestionsList[i]);
+                    if (matches.length > 100) {
+                        break;
+                    }
+                }
+            }
+
+            // for (var i = 0; i < matches.length; i)
+
+            //TODO: Because the animation is delayed, clicking on multiple buttons
+            //      will make them start to "pop" in once the first animation is done loading
+            //      maybe fix?
+            var handleSuggestionClick = function(e) {
+                // console.log("handling suggestion click");
+                // console.log(e.target.className == "removebutton");
+                // console.log("==");
+                if (e.target.className == "removebutton") {
+                    // console.log("Removing is true");
+                    return; //Element is being removed so don't fire the event
+                }
+
+                //TODO: Suggestion click
+                var target = null;
+                console.log(e.target);
+                if (e.target.dataset.item) {
+                    target = e.target;
+                } else {
+                    //The text child
+                    target = e.target.parentElement;
+                }
+                console.log(target);
+                // console.log(e.target);
+                addListItem(target.dataset.item, Number(document.querySelector("#quantity").value));
+
+                showJustAddedPopup();
+
+                document.querySelector("#searchbar").value = "";
+                document.querySelector("#quantity").value = 1;
+
+                generateSuggestionsList("");
+            }
+
+            document.querySelector(".results").innerHTML = "";
+            for (var i = 0; i < matches.length; i++) {
+                var result = document.createElement("div");
+                result.onclick = handleSuggestionClick;
+                result.className = "result";
+                result.dataset.item = matches[i];
+                result.innerHTML = `
+                <div class="resulttext">${matches[i]}</div>
+                <div class="removebutton" onclick="removeSuggestion(event);">X</div>`;
+                document.querySelector(".results").append(result);
+            }
+        }
+
+        function handleTextEntryChange(e) {
+
+            // if (e.)
+            // console.log("Changed");
+            var query = e.target.value;
+            //Update list of suggestions and other things. Also check for enter key (13) here
+            // setTimeout(() => {
+            // console.log(e.target.value);
+            generateSuggestionsList(query);
+
+            // console.log(matches.join(","));
+            // }, 20); //Sometimes the value was lagging behind the event
+            // e
+        }
+
+        var justaddedtimeout = null;
+
+        function showJustAddedPopup() {
+            document.querySelector(".add_item_screen").classList.add("justadded");
+            clearTimeout(justaddedtimeout);
+            justaddedtimeout = setTimeout(() => {
+                document.querySelector(".add_item_screen").classList.remove("justadded");
+            }, 1600);
+        }
+        //TODO: Make the checkmark more responsive--if ANY of the finger touches the
+        //      claim button, it is triggered instead of the parent event
+
+        function handleTextEntryKeydown(e) {
+            //TODO: Highlight items if they've been added to the list
+            if (e.keyCode == 13) {
+                var value = document.querySelector("#searchbar").value;
+                var quantity = Number(document.querySelector("#quantity").value);
+
+                //Enter key
+                if (suggestionsList.indexOf(value) == -1) {
+                    addSuggestion(value); //Don't add duplicates
+                }
+                //TODO: Maybe split screen the add screen and items list? Or show which items are on the grocery list?
+
+                //NEXT STEPS TODO: Close the add screen and add it to the list (send the add request to the server)
+                addListItem(value, quantity);
+
+                showJustAddedPopup();
+
+                document.querySelector("#searchbar").value = "";
+                document.querySelector("#quantity").value = 1;
+            }
+        }
+
+        function addSuggestion(suggestion) {
+            GameClient.sendMessage({
+                "type": "addsuggestion",
+                "suggestion": suggestion
+            })
+        }
+
+        function removeSuggestion(e) {
+            e.target.parentElement.removing = "true";
+            console.log("Removing suggestion " + e.target.parentElement.dataset.item);
+            GameClient.sendMessage({
+                "type": "removesuggestion",
+                "suggestion": e.target.parentElement.dataset.item
+            });
+            e.preventDefault();
+
+            console.log("Prevented default");
+        }
+        //TODO: Re-generate the search results when the suggestion database is pushed from the server
+
+        // var oldGameState
+
+        GameClient.onMessage = function(message) {
+            // console.log(message);
+            if (message.type == "playerinfo") { //The server tells us who we are
+                player = message.player;
+            } else if (message.type == "gameState") {
+                gameState = message.gameState;
+                processGameStateUpdate();
+            } else if (message.type == "suggestions") {
+                suggestionsList = message.suggestions;
+                generateSuggestionsList(document.querySelector("#searchbar").value);
+            }
+        }
+        generateSuggestionsList(document.querySelector("#searchbar").value);
+
+        GameClient.onDeregister = function(details) {
+            // document.body.innerHTML += "<br>" + JSON.stringify(details);
+            document.querySelector(".registration_notice").style.display = "flex";
+            document.querySelector(".registration_error").innerHTML = details.err_code;
+        }
+    </script>
+</body>
+
+</html>

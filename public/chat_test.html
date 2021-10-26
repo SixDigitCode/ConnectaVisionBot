@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game_client.js"></script>
+    <script>
+        GameClient.onRegister = function() {
+            document.body.innerHTML += "<br>Registration successful!";
+        }
+        GameClient.onDeregister = function(details) {
+            document.body.innerHTML += "<br>" + JSON.stringify(details);
+        }
+        GameClient.onMessage = function(message) {
+            console.log("GOT MESSAGE " + message);
+            document.body.innerHTML += "<br>" + message;
+        }
+
+        function sendchat() {
+            var message = document.getElementById("chatbox").value;
+            GameClient.sendMessage(message);
+        }
+    </script>
+    <style>
+        table {
+            border: 1px solid black;
+            border-collapse: collapse;
+            margin-top: 1em;
+        }
+
+        tr {
+            line-height: 50px;
+            height: 50px;
+        }
+
+        td {
+            border: 1px solid black;
+            min-width: 50px;
+            min-height: 50px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <input type="text" id="chatbox"><input type="button" value="Send" onclick="sendchat();">
+
+</body>
+
+</html>

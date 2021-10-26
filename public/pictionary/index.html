@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Pictionary</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <script src="../socket.io/socket.io.js"></script>
+    <script src="../game_client.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
+
+
+        html,
+        body {
+            display: block;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overscroll-behavior-y: none;
+            overscroll-behavior: none;
+            /* position: fixed; */
+            /* overflow: hidden; */
+        }
+
+        html {
+            position: fixed;
+        }
+
+        body {
+            background-image: url(bg.png);
+            background-position: center center;
+            background-size: cover;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding-top: 1em;
+            padding-bottom: 4em;
+            box-sizing: border-box;
+        }
+
+        .canvaswrapper {
+            box-sizing: border-box;
+            display: block;
+            padding: 0;
+            border-radius: 0.5em;
+            overflow: hidden;
+            -webkit-box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+        }
+
+        .canvasinfotext {
+            /* background: aqua; */
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#134405+0,1b5b07+100 */
+            background: #134405;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #134405 0%, #1b5b07 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #134405 0%, #1b5b07 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #134405 0%, #1b5b07 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#134405', endColorstr='#1b5b07', GradientType=0);
+            color: rgba(255, 255, 255, 0.9);
+            /* IE6-9 */
+
+            padding: 0.3em;
+            text-align: center;
+            position: relative;
+            /* overflow: hidden; */
+        }
+
+        .canvasinfotext .progress {
+            content: ".";
+            color: rgba(0, 0, 0, 0);
+            pointer-events: none;
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.2);
+            left: 0;
+            top: 0;
+            width: 0%;
+            height: 100%;
+            transition: 0.3s;
+        }
+
+        @keyframes time_flash {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .canvasinfotext.flashing .progress {
+            animation: time_flash 0.6s infinite;
+            animation-timing-function: cubic-bezier(.7, 0, .37, 1);
+        }
+
+        .canvasinfotext.drawing {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#1c3d6b+0,255a89+100 */
+            background: #1c3d6b;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #1c3d6b 0%, #255a89 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #1c3d6b 0%, #255a89 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #1c3d6b 0%, #255a89 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#1c3d6b', endColorstr='#255a89', GradientType=0);
+            /* IE6-9 */
+
+        }
+
+        .canvasinfotext.drawing .drawer {
+            display: none;
+        }
+
+        .canvasinfotext.drawing .hint {
+            font-family: 'Patrick Hand', cursive;
+            font-size: 2em;
+        }
+
+        #maincanvas {
+            background-color: white;
+            display: block;
+            border-radius: 0em 0em 0.5em 0.5em;
+        }
+
+        .guesses {
+            width: calc(100% - 3em);
+            color: white;
+            margin-top: 1em;
+            padding-top: 0.5em;
+            overflow: auto;
+            flex: 1;
+            font-size: 0.85em;
+        }
+
+        .guesses::before {
+            content: "Guesses";
+            font-size: 1em;
+            font-weight: bold;
+            position: relative;
+            top: -0.5em;
+        }
+
+        .guess {
+            margin-bottom: 0.2em;
+        }
+
+        .guess .guesser {
+            display: inline;
+            opacity: 0.7;
+        }
+
+        .guess.correct .guesser {
+            opacity: 1;
+            color: #c1ff8f;
+            font-weight: bold;
+        }
+
+        .guess .guessed_word {
+            display: inline;
+        }
+
+        .enterguess {
+            /* background-color: purple; */
+            position: fixed;
+            bottom: 0;
+            width: 100vw;
+            height: 3em;
+            overflow: hidden;
+            padding: 0.5em;
+            box-sizing: border-box;
+            display: flex;
+        }
+
+        .enterguess input {
+            width: 100%;
+            margin: 0;
+            font-size: 1.2em;
+            background: none;
+            border: none;
+            outline: none;
+            color: white;
+            transition: 200ms;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .enterguess input::placeholder {
+            transition: 200ms;
+            color: white;
+            opacity: 0.4;
+        }
+
+        .enterguess input:focus::placeholder {
+            opacity: 0.6;
+        }
+
+        .enterguess input:not(:placeholder-shown) {
+            border-bottom: 2px solid white;
+        }
+
+        .enterguess input:focus {
+            border-bottom: 2px solid white;
+        }
+
+        .drawingtools {
+            background-color: white;
+            position: fixed;
+            z-index: 99999;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 3em;
+            display: flex;
+            border-radius: 1.5em 1.5em 0em 0em;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5em;
+            box-sizing: border-box;
+            transition: 0.3s;
+        }
+
+        .drawingtools.hidden {
+            pointer-events: none;
+            bottom: -3em;
+        }
+
+        .swatch {
+            width: 2em;
+            height: 2em;
+            color: rgba(0, 0, 0, 0);
+            border-radius: 999em;
+            border: 2px solid black;
+            box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.7);
+            transition: 0.2s;
+        }
+
+        .eraser_swatch,
+        .clear_swatch {
+            border: none;
+            box-shadow: none;
+        }
+
+        .eraser_swatch {
+            background: url(eraser.png);
+            background-size: contain;
+            background-position: center center;
+            background-repeat: no-repeat;
+            border-radius: 0;
+        }
+
+        .clear_swatch {
+            width: 2em;
+            height: 2em;
+            color: rgba(0, 0, 0, 0);
+            transition: 0.2s;
+            background: url(trash.png);
+            background-size: contain;
+            background-position: center center;
+            background-repeat: no-repeat;
+            border-radius: 0;
+        }
+
+        .swatch.selected {
+            transform: scale(1.2);
+        }
+
+        .swatch[data-color="#ff5454"] {
+            background-color: #ff5454
+        }
+
+        .swatch[data-color="#ff9354"] {
+            background-color: #ff9354
+        }
+
+        .swatch[data-color="#fffc54"] {
+            background-color: #fffc54
+        }
+
+        .swatch[data-color="#54ff5d"] {
+            background-color: #54ff5d
+        }
+
+        .swatch[data-color="#5479ff"] {
+            background-color: #5479ff
+        }
+
+        .swatch[data-color="#c054ff"] {
+            background-color: #c054ff
+        }
+
+        .swatch[data-color="#000000"] {
+            background-color: #000000
+        }
+
+        .swatch[data-color="#ffffff"] {
+            background-color: #ffffff
+        }
+
+        .registration_notice {
+            backdrop-filter: blur(1vw);
+            background: rgba(0, 0, 0, 0.5);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            height: 100vh;
+            box-sizing: border-box;
+            padding: 10vw;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999999999999999999999;
+        }
+
+        .registration_error {
+            color: white;
+            font-family: sans-serif;
+            font-size: 1.7em;
+            text-align: center
+        }
+
+        .choose_word_wrapper {
+            transition: 0.3s;
+            position: fixed;
+            z-index: 999999999999999999;
+            backdrop-filter: blur(1vw);
+            background: rgba(0, 0, 0, 0.5);
+            transform: scale(1);
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            /* display: none; */
+            align-items: center;
+            justify-content: center;
+        }
+
+        .choose_word_wrapper.hidden {
+            background: rgba(0, 0, 0, 0.0);
+            backdrop-filter: blur(0vw);
+            /* display: none; */
+            pointer-events: none;
+        }
+
+        .choose_word {
+            width: 80vw;
+            max-width: 25em;
+            border: 2px solid white;
+            border-radius: 0.5em;
+            background-image: url(bg.png);
+            background-size: 100vh;
+            background-position: center;
+            color: white;
+            -webkit-box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            transition: 0.3s;
+        }
+
+        .choose_word_wrapper.hidden .choose_word {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+
+
+        .choose_word h2 {
+            text-align: center;
+        }
+
+        .word_button {
+            width: 80%;
+            margin: 0 auto;
+
+            color: black;
+            text-align: center;
+            padding: 0.3em;
+            box-sizing: border-box;
+            border-radius: 0.5em;
+            -webkit-box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            margin-bottom: 1em;
+            cursor: pointer;
+            padding: 0;
+            background-color: #677C1F;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .word_button:hover {
+            filter: brightness(1.2);
+        }
+
+        .word_button:active {
+            transition: 0s;
+            filter: brightness(0.9);
+        }
+
+        .word_button .word_type {
+            color: white;
+            padding: 0.3em;
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#096b15+0,1c7727+100 */
+            background: #096b15;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #096b15 0%, #1c7727 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #096b15 0%, #1c7727 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #096b15 0%, #1c7727 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#096b15', endColorstr='#1c7727', GradientType=0);
+            /* IE6-9 */
+
+
+
+        }
+
+        .word_button .word {
+            font-family: 'Patrick Hand', cursive;
+            font-size: 2em;
+            padding: 0.1em;
+
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#cee570+0,75d112+100 */
+            background: #cee570;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #cee570 0%, #75d112 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #cee570 0%, #75d112 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #cee570 0%, #75d112 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#cee570', endColorstr='#75d112', GradientType=0);
+            /* IE6-9 */
+        }
+
+
+
+
+        .word_button.medium .word_type {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#686b09+0,75781c+100 */
+            background: #686b09;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #686b09 0%, #75781c 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #686b09 0%, #75781c 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #686b09 0%, #75781c 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#686b09', endColorstr='#75781c', GradientType=0);
+            /* IE6-9 */
+
+
+        }
+
+        .word_button.medium .word {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#e5b771+0,d2bc12+100 */
+            background: #e5b771;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #e5b771 0%, #d2bc12 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #e5b771 0%, #d2bc12 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #e5b771 0%, #d2bc12 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#e5b771', endColorstr='#d2bc12', GradientType=0);
+            /* IE6-9 */
+
+        }
+
+        .word_button.hard .word_type {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#6b4509+0,78551c+100 */
+            background: #6b4509;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #6b4509 0%, #78551c 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #6b4509 0%, #78551c 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #6b4509 0%, #78551c 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#6b4509', endColorstr='#78551c', GradientType=0);
+            /* IE6-9 */
+
+        }
+
+        .word_button.hard .word {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#e58871+0,d26f12+100 */
+            background: #e58871;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #e58871 0%, #d26f12 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #e58871 0%, #d26f12 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #e58871 0%, #d26f12 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#e58871', endColorstr='#d26f12', GradientType=0);
+            /* IE6-9 */
+
+        }
+
+        .word_button.superhard .word_type {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#6b0c09+0,781f1c+100 */
+            background: #6b0c09;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #6b0c09 0%, #781f1c 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #6b0c09 0%, #781f1c 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #6b0c09 0%, #781f1c 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#6b0c09', endColorstr='#781f1c', GradientType=0);
+            /* IE6-9 */
+
+        }
+
+        .word_button.superhard .word {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#e57182+0,d22c12+100 */
+            background: #e57182;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #e57182 0%, #d22c12 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #e57182 0%, #d22c12 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #e57182 0%, #d22c12 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#e57182', endColorstr='#d22c12', GradientType=0);
+            /* IE6-9 */
+
+        }
+
+        .round_end_info_wrapper.hidden {
+            opacity: 0;
+            backdrop-filter: blur(0vw);
+            pointer-events: none;
+        }
+
+        .round_end_info_wrapper {
+            opacity: 1;
+            transition: 0.5s;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(1vw);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 999999999999999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .round_end_info_wrapper.hidden .round_end_info {
+            top: 5vh;
+        }
+
+        .round_end_info {
+            transition: 0.8s;
+            position: relative;
+            top: 0vh;
+            color: white;
+            text-align: center;
+        }
+
+        .word_reveal {
+            font-size: 1.2em;
+        }
+
+        .word_reveal .word_reveal_header {
+            font-size: 1em;
+        }
+
+        .word_reveal .word_reveal_word {
+            font-family: 'Patrick Hand', cursive;
+            font-size: 2em;
+            line-height: 0.85em;
+        }
+
+        .word_reveal .word_reveal_points {
+            font-size: 0.8em;
+            opacity: 0.8;
+            margin-top: 0.5em;
+        }
+
+        .player_scores {
+            margin-top: 1em;
+        }
+
+        .player_score {
+            /* background-color: rgba(255, 255, 255, 0.2); */
+            background-color: rgba(0, 0, 0, 0.6);
+            position: relative;
+            font-size: 1.4em;
+            padding: 0.3em;
+            padding-left: 2.1em;
+            padding-right: 0.5em;
+            overflow: hidden;
+            width: 80vw;
+            box-sizing: border-box;
+            display: flex;
+
+
+
+            padding: 0.5em;
+            /* padding-left: 3.75em; */
+            padding-left: 2.7em;
+            padding-right: 0.8em;
+            font-size: 1.3em;
+            position: relative;
+            box-shadow: 0px 4px 14px -5px rgb(0 0 0 / 82%);
+            transition: 0.5s;
+            margin: 0 auto;
+            margin-bottom: 0.5em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+
+            border-radius: 1.075em;
+
+        }
+
+        .player_score.you {
+            background-color: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            color: black;
+
+        }
+
+        .player_score.you .player_name::after {
+            content: " (You)";
+        }
+
+        .player_score .player_img {
+            /* height: 1em; */
+            position: absolute;
+            left: -0.05em;
+            top: 0;
+            /* height: 100%; */
+            border-radius: 99999999vw;
+            height: 2.15em;
+        }
+
+        .player_score .player_position {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            background-color: #424242;
+            box-sizing: border-box;
+            padding: 0.1em 0.5em;
+            border-radius: 99999px;
+            /* line-height: 100%; */
+            position: relative;
+            left: -0.3em;
+            top: -0.1em;
+            height: fit-content;
+            font-weight: bold;
+            letter-spacing: -0.05em;
+            text-align: center;
+        }
+
+        .player_score .player_position[data-position="1"] {
+            background-color: #FFD700;
+            color: black;
+        }
+
+        .player_score .player_position[data-position="2"] {
+            background-color: #C0C0C0;
+            color: black;
+        }
+
+        .player_score .player_position[data-position="3"] {
+            background-color: #CD7F32;
+            color: black;
+        }
+
+        .player_score .player_name {
+            /* color: white; */
+            display: inline-block;
+            width: auto;
+            text-align: left;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .player_score .player_scoreval {
+            /* color: white; */
+            display: inline-block;
+        }
+
+        .players_overlay_wrapper {
+            background-color: rgba(0, 0, 0, 0.2);
+            z-index: 9999999999999999999;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url(bg.png);
+            background-position: center center;
+            background-size: cover;
+            overflow: auto;
+            transition: 1s;
+        }
+
+        .players_overlay_wrapper.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .players_overlay {
+            width: 80vw;
+            max-width: 30em;
+            margin: 0 auto;
+            margin-top: 5em;
+            color: white;
+        }
+
+        .players_overlay h2 {
+            font-family: 'Patrick Hand', cursive;
+            font-size: 2.5em;
+            text-align: center;
+        }
+
+        @keyframes rotate-in {
+            0% {
+                transform: rotateX(90deg)
+            }
+
+            100% {
+                transform: rotateX(0deg);
+            }
+        }
+
+        .player {
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 0.5em;
+            padding-left: 3.75em;
+            padding-right: 1em;
+            font-size: 1.3em;
+            /* border-radius: 1em; */
+            border-radius: 1.4em;
+            position: relative;
+            margin-bottom: 1em;
+            animation: rotate-in 0.7s;
+            animation-fill-mode: forwards;
+            /* width: fit-content; */
+            -webkit-box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            transition: 0.5s;
+            min-height: 1.5em;
+            display: flex;
+            align-items: center;
+        }
+
+        .player.idle {
+            opacity: 0.5;
+        }
+
+        .player.idle::after {
+            content: "(Inactive)";
+            margin-left: 0.2em;
+        }
+
+        .player .player_img {
+            position: absolute;
+            /* width: 2.5em; */
+            /* height: 2.5em; */
+            /* top: -0.25em; */
+            /* height: 100%; */
+            height: 2.5em;
+            top: 0;
+            left: -0.01em;
+            border-radius: 99999px;
+            /* border: 2px solid white; */
+            box-shadow: 0px 4px 14px -5px rgb(0 0 0 / 82%);
+            background: rgb(13, 13, 13);
+            background: linear-gradient(180deg, rgba(13, 13, 13, 1) 0%, rgba(54, 54, 54, 1) 100%);
+        }
+
+        .start_button {
+            /* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#cee570+0,75d112+100 */
+            background: #cee570;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #cee570 0%, #75d112 100%);
+            /* FF3.6-15 */
+            background: -webkit-linear-gradient(top, #cee570 0%, #75d112 100%);
+            /* Chrome10-25,Safari5.1-6 */
+            background: linear-gradient(to bottom, #cee570 0%, #75d112 100%);
+            /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+            filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#cee570', endColorstr='#75d112', GradientType=0);
+            /* IE6-9 */
+            color: black;
+            text-align: center;
+            border-radius: 0.5em;
+            font-size: 1.7em;
+            padding: 0.5em 1em;
+            cursor: pointer;
+
+            -webkit-box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            box-shadow: 0px 4px 14px -5px rgba(0, 0, 0, 0.82);
+            transition: 0.3s;
+            margin-bottom: 2em;
+
+            max-width: 10em;
+            margin: 0 auto;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .start_button:hover {
+            filter: brightness(1.2);
+        }
+
+        .start_button:active {
+            transition: 0s;
+            filter: brightness(0.9);
+        }
+
+        /* .word */
+    </style>
+    <script>
+        var quickResizeFrame;
+
+        var updateQuickResizeFrame = function() {
+            quickResizeFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            // quickResizeFrame = canvas.toDataURL()
+        }
+        var clearQuickResizeFrame = function() {
+            quickResizeFrame = null;
+        }
+
+        function resizeCanvas(w) {
+            if (!quickResizeFrame) { //If there is no quickresize frame, create one
+                updateQuickResizeFrame();
+            }
+            document.querySelector("#maincanvas").width = w;
+            document.querySelector("#maincanvas").height = w;
+
+            if (quickResizeFrame !== undefined) {
+                // console.log("Running quick redraw");
+                // ctx.putImageData(quickResizeFrame, 0, 0, 0, 0, canvas.width, canvas.height);
+                ctx.putImageData(quickResizeFrame, 0, 0);
+            }
+            clearTimeout(resizeRedrawTimeout);
+            resizeRedrawTimeout = setTimeout(() => {
+                //The script was re-tracing the image for every frame the window was resized, which caused
+                //considerable performance issues. So for now it just re-draws the old canvas image data
+                //and only re-traces when there is a 50ms pause in resizing
+                redrawCanvas();
+            }, 50);
+        }
+
+        function handleInputKey(e) {
+            if (e.keyCode == 13) {
+                var guessedWord = document.querySelector("#guessfield").value;
+                // console.log("Returnn");
+                if (guessedWord !== "") {
+                    GameClient.sendMessage({
+                        "type": "guess",
+                        "word": guessedWord
+                    });
+                    document.querySelector("#guessfield").value = "";
+                }
+            }
+        }
+
+        function chooseWord(e) {
+            // console.log(e.target.parentElement.dataset.value);
+            GameClient.sendMessage({
+                "type": "chooseword",
+                "num": e.target.parentElement.dataset.value
+            });
+        }
+
+        var players = {
+            1: {
+                first_name: "Jimmy"
+            },
+            2: {
+                first_name: "2immy"
+            },
+            3: {
+                first_name: "3immy"
+            },
+            4: null,
+            5: null,
+            6: null,
+            7: null,
+            8: null,
+            9: null,
+            10: null
+        }
+
+        function updateGuessesList(list) {
+            /*
+                List should be in this format:
+                [
+                    {type: "incorrect", player: 1, word: "Someword"},
+                    {type: "correct", player: 1}
+                ]
+
+            */
+            //TODO: If drawer is selected but there is no word, say "So-and-so is choosing a word"
+            var guessesbox = document.querySelector(".guesses");
+            guessesbox.innerHTML = "";
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].type == "correct") {
+                    guessesbox.innerHTML += `<div class="guess correct">
+                        <div class="guesser">
+                            ${gameState.players[list[i].player].first_name} correctly guessed the word!
+                        </div>
+                        <div class="guessed_word">
+
+                        </div>
+                    </div>`;
+                } else {
+                    guessesbox.innerHTML += `<div class="guess">
+                        <div class="guesser">
+                            ${gameState.players[list[i].player].first_name}:
+                        </div>
+                        <div class="guessed_word">
+                            ${list[i].word}
+                        </div>
+                    </div>`;
+                }
+            }
+            guessesbox.scrollBy(0, 9999999999);
+        }
+
+        function addMove(move) {
+            allMoves.push(move);
+            moves.push(move);
+        }
+
+        //Every 5-10s resend the entire image
+        //TODO: Show everyone in the room
+
+        window.onresize = function() {
+            var windoww = window.innerWidth;
+            var windowh = window.innerHeight;
+            var targetw = windoww - 40;
+            var aspectratio = windoww / windowh;
+
+            if (aspectratio > (600 / 1000)) {
+                // if (aspectratio > (500 / 1000)) {
+                // targetw = window.innerHeight * 0.45;
+                targetw = window.innerHeight * 0.58;
+            }
+            // targetw = Math.min(windoww - 40, window.innerHeight * 0.45);
+
+            clearTimeout(resizeRedrawTimeout);
+            resizeCanvas(targetw)
+        }
+
+        var allMoves = [];
+        var moves = [];
+
+        function setLineWidth(lw) {
+            addMove({
+                type: "lineWidth",
+                lineWidth: lw
+            });
+            ctx.lineWidth = lw;
+        }
+
+        function setStrokeStyle(s) {
+            ctx.strokeStyle = s;
+            addMove({
+                type: "strokeStyle",
+                strokeStyle: s
+            });
+        }
+
+        //TODO: I suppose we could add an undo button pretty easily (i.e. )
+
+        function selectSwatch(e) {
+            var swatches = document.querySelectorAll(".swatch");
+            for (var i = 0; i < swatches.length; i++) {
+                swatches[i].classList.remove("selected");
+            }
+
+            e.target.classList.add("selected");
+
+            if (e.target.dataset.color == "eraser") {
+                console.log("Eraser detected");
+                setLineWidth(40); //TODO: Dynamically change line width based on canvas size or leave as is?
+                //TODO: Option to download image or share with friends at end?
+                setStrokeStyle("white");
+            } else {
+                setLineWidth(2)
+                setStrokeStyle(e.target.dataset.color);
+            }
+        }
+        //TODO: Canvas data disappears on window resize
+
+        function forceClearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            allMoves = [];
+            moves = [];
+        }
+
+        function clearCanvas(e) {
+            if (confirm("Are you sure you want to clear the entire canvas?")) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                forceClearCanvas();
+                moves.push({
+                    "type": "clear"
+                });
+            }
+        }
+
+        function processMove(move) {
+            // console.log("RUnning" + move);
+            if (move.type == "move") {
+                // console.log("Creating line to " + allMoves[i].x * canvas.width + ", " + allMoves[i].y * canvas.width)
+                ctx.lineTo(move.x * canvas.width, move.y * canvas.width);
+                ctx.stroke();
+            } else if (move.type == "lineWidth") {
+                // console.log("Line width is now " + allMoves[i].lineWidth);
+                ctx.lineWidth = move.lineWidth;
+            } else if (move.type == "strokeStyle") {
+                // console.log("Stroke style is now " + allMoves[i].lineWidth);
+                ctx.strokeStyle = move.strokeStyle;
+            } else if (move.type == "beginPath") {
+                // console.log("Beginning path");
+                ctx.beginPath();
+            } else if (move.type == "closePath") {
+                // console.log("Closing path");
+                ctx.closePath();
+            } else if (move.type == "clear") {
+                console.log("===========CLEARING");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                moves = [];
+            } else {
+                console.log("Unknown move: " + JSON.stringify(move));
+            }
+        }
+
+        function redrawCanvas() {
+            // quickResizeFrame = undefined;
+            // console.log("Redrawing canvas");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var i = 0; i < allMoves.length; i++) {
+                processMove(allMoves[i]);
+            }
+            clearQuickResizeFrame();
+        }
+
+        function handleTouchTick(touch) {
+            //Get pageX and pageY
+            // console.log(touch.pageX + ", " + touch.pageY);
+            var x = touch.clientX - canvas.offsetLeft;
+            var y = touch.clientY - canvas.offsetTop;
+            ctx.lineTo(x, y);
+            // moves.push({// type: "move",
+            // x: (x / canvas.width, y / canvas.height]});
+            addMove({
+                type: "move",
+                x: (x / canvas.width),
+                y: (y / canvas.height)
+            });
+            ctx.stroke();
+            updateQuickResizeFrame();
+        }
+
+        function sendDrawingUpdates() {
+            if (moves.length == 0 || !isDrawing) {
+                return; //Don't send moves if there aren't any
+            }
+            // console.log(moves);
+            console.log("Sending moves");
+            GameClient.sendMessage({
+                "type": "newmoves",
+                "moves": moves
+            });
+            //TODO: Prevent the sender from receiving the message. Maybe if they're drawing?
+
+            moves = [];
+        }
+
+        var gameState = null;
+
+        var player = null;
+
+        var isDrawing = false;
+
+        var pointsThisRound = 0;
+        var placeThisRound = 0;
+
+        function recalculateProgressBar() {
+            if (gameState == null) {
+                return;
+            }
+
+            //TODO: Hide the progress bar when not in use
+            var timeLeft = gameState.endTime - Date.now();
+            var percentage = (timeLeft / (60 * 1000)) * 100;
+            // console.log("Percentage: " + percentage);
+            if (timeLeft < 10 * 1000) {
+                document.querySelector(".canvasinfotext").classList.add("flashing");
+            } else {
+                document.querySelector(".canvasinfotext").classList.remove("flashing");
+            }
+            document.querySelector(".canvasinfotext .progress").style.width = percentage + "%";
+        }
+
+        function formatPlayerName(type, player) {
+            var firstName = player.first_name ? player.first_name : "";
+            var lastName = player.last_name ? player.last_name : "";
+            var lastInitial = player.last_name ? lastName.substring(0, 1).toUpperCase + "." : "";
+            if (type == "first") {
+                return firstName;
+            } else if (type == "last") {
+                return lastName;
+            } else if (type == "firstlast") {
+                return firstName + (player.last_name ? (" " + lastName) : "");
+            } else if (type == "firstinitial") {
+                return firstName + (player.last_name ? (" " + lastInitial) : "");
+            }
+        }
+
+        function getImageURLForPlayer(player) {
+            return "../profilepic?sessionid=" + getURLAttr("session") + "&userid=" + player.user_id;
+        }
+
+        function processGameStateUpdate() {
+            if (gameState == null) {
+                return;
+            }
+            //TODO: Function to get names? (i.e. full name, first name, first with last initial?)
+            var playerChips = [];
+            var playerImages = [];
+            for (var i = 0; i < gameState.players.length; i++) {
+                // console.log("Beginning of loop. i = " + i);
+                var playerChip = document.querySelector(".player[data-id='" + gameState.players[i].user_id + "']");
+                if (!playerChip) { //If the player chip doesn't exist
+                    let locali = i;
+                    // console.log("Adding player chip");
+                    playerChips[i] = document.createElement("div");
+                    playerChips[i].className = "player";
+                    playerChips[i].dataset.id = gameState.players[i].user_id;
+
+                    playerImages[i] = document.createElement("img");
+                    // console.log("Set up image");
+                    playerImages[i].onload = (function() {
+                        // console.log("local i: " + locali);
+                        // console.log("Image loaded");
+                        document.querySelector(".player_list").appendChild(playerChips[locali]);
+                    }).bind(this);
+
+                    playerImages[i].src = "../profilepic?sessionid=" + getURLAttr("session") + "&userid=" + gameState.players[i].user_id;
+                    gameState.players[i].user_id;
+                    playerImages[i].className = "player_img";
+
+                    if (gameState.players[i].active == false) {
+                        playerChips[i].classList.add("idle");
+                    }
+
+
+                    playerChips[i].innerHTML = formatPlayerName("firstlast", gameState.players[i]);
+
+                    if (gameState.players[i].user_id == player.user_id) {
+                        playerChips[i].innerHTML += " (You)";
+                    }
+                    playerChips[i].append(playerImages[i]);
+
+                    // document.querySelector(".player_list").appendChild(playerChip);
+                } else {
+                    //Updates the idle status of the player
+                    if (gameState.players[i].active == false) {
+                        playerChip.classList.add("idle");
+                    } else {
+                        // console.log(playerChip);
+                        playerChip.classList.remove("idle");
+                    }
+                }
+            }
+
+            if (gameState.gameStarted) {
+                document.querySelector(".players_overlay_wrapper").classList.add("hidden");
+            } else {
+                document.querySelector(".players_overlay_wrapper").classList.remove("hidden");
+            }
+
+            if (gameState.gameFinished) {
+                displayRoundEndScores(gameState.word, true);
+            }
+
+            if (gameState.drawer == player.playernum && gameState.word !== "") {
+                //If the user is drawing right now
+                document.querySelector(".drawer").innerHTML = "You are drawing";
+                document.querySelector(".canvasinfotext").classList.add("drawing");
+                document.querySelector(".hint").innerHTML = "Draw: " + gameState.word;
+
+                document.querySelector(".drawingtools").classList.remove("hidden");
+                document.querySelector("#guessfield").style.display = "none";
+                isDrawing = true;
+            } else {
+                document.querySelector(".drawer").innerHTML = gameState.players[gameState.drawer].first_name + " is drawing";
+                document.querySelector(".canvasinfotext").classList.remove("drawing");
+                document.querySelector(".hint").innerHTML = gameState.hint;
+
+                document.querySelector(".drawingtools").classList.add("hidden");
+                document.querySelector("#guessfield").style.display = "block";
+                isDrawing = false;
+            }
+            if (gameState.word !== "") { //If the word has been chosen
+                // document.querySelector(".choose_word_wrapper").style.display = "none";
+                document.querySelector(".choose_word_wrapper").classList.add("hidden");
+            }
+
+            updateGuessesList(gameState.guesses);
+
+            updateRoundEndScores();
+        }
+
+        var startGame = (function() {
+            console.log("Starting game");
+            // NEXT STEPS: Implement game start
+            GameClient.sendMessage({
+                type: "gamestart"
+            });
+        }).bind(this);
+
+        var updateRoundEndScores = function() {
+            document.querySelector(".player_scores").innerHTML = "";
+            //TODO: Maybe display one of the score chips as "You"?
+            // var sortedscores = [...this.gameState.players].sort((a, b) => {
+            //     if ((a.points || 0) < (b.points || 0)) {
+            //         return -1;
+            //     } else { // a > b
+            //         return 1;
+            //     }
+            // });
+            var sortedscores = [...gameState.players].sort((a, b) => {
+                // console.log(a.points + " vs " + b.points);
+                return b.points - a.points;
+            });
+            console.log(sortedscores);
+            for (var i = 0; i < sortedscores.length; i++) {
+                var qualifier = "";
+                if (gameState.gameFinished) {
+                    var posnum = i + 1;
+                    var pos = "";
+                    if (posnum == 1) {
+                        pos = posnum + "st";
+                    } else if (posnum == 2) {
+                        pos = posnum + "nd";
+                    } else if (posnum == 3) {
+                        pos = posnum + "rd";
+                    } else {
+                        pos = posnum + "th";
+                    }
+                    qualifier = `<div class="player_position" data-position="${posnum}">${pos}</div>`
+                }
+
+                var playerScoreClassName = (sortedscores[i].user_id == player.user_id) ? "player_score you" : "player_score";
+                document.querySelector(".player_scores").innerHTML += `<div class="${playerScoreClassName}">
+                    <img src="${getImageURLForPlayer(sortedscores[i])}" class="player_img">
+
+                    <div class="player_name">${qualifier}${formatPlayerName("firstlast", sortedscores[i])}</div>
+                    <div class="player_scoreval">${sortedscores[i].points}</div>
+                </div>`
+            }
+        }
+
+        var displayRoundEndScores = function(word, isGameOver) {
+            updateRoundEndScores();
+            // console.log("Place: " + placeThisRound);
+            var places = "unknown,first,second,third,fourth,fifth,sixth,seventh,eigth,ninth,tenth".split(",");
+            var place = places[placeThisRound];
+            if (place == undefined) { //Not in the array of place names
+                var placeString = placeThisRound.toString();
+                if (placeString.endsWith("1")) {
+                    place = placeThisRound + "st";
+                } else if (placeString.endsWith("2")) {
+                    place = placeThisRound + "nd";
+                } else if (placeString.endsWith("3")) {
+                    place = placeThisRound + "rd";
+                } else {
+                    place = placeThisRound + "th";
+                }
+            }
+            // placeThisRound
+
+            if (isGameOver) {
+                document.querySelector(".word_reveal_header").innerHTML = "Game finished. The word was";
+            } else {
+                document.querySelector(".word_reveal_header").innerHTML = "The word was";
+            }
+
+            if (gameState.drawer == player.playernum) {
+                var identifier = " people";
+                if (gameState.numGuessedCorrectly == 1) {
+                    identifier = " person";
+                }
+
+                document.querySelector(".word_reveal_points").innerHTML = gameState.numGuessedCorrectly + identifier + " guessed the word, so you got " + (gameState.numGuessedCorrectly * gameState.wordValue) + " points.";
+            } else if (pointsThisRound == 0) {
+                document.querySelector(".word_reveal_points").innerHTML = "You got 0 points";
+            } else {
+                document.querySelector(".word_reveal_points").innerHTML = "You guessed " + place + " and got " + pointsThisRound + " points";
+            }
+
+            document.querySelector(".round_end_info_wrapper").classList.remove("hidden");
+            document.querySelector(".word_reveal_word").innerHTML = word;
+        }
+
+        var hideRoundEndScores = function() {
+            document.querySelector(".round_end_info_wrapper").classList.add("hidden");
+        }
+
+
+        GameClient.onMessage = function(message) {
+            console.log(message);
+            if (message.type == "newmoves") {
+                // console.log("Got new moves");
+                allMoves = allMoves.concat(message.moves);
+                //TODO: Store current player number. If the drawer (based on gameState) equals the current player, cancel
+                console.log("Got moves");
+                console.log(message.moves);
+                if (gameState.drawer == player.playernum) {
+                    return; //If the current player is the one drawing, don't re-draw what the player just drew
+                }
+                // console.log(message.moves);
+
+                for (var i = 0; i < message.moves.length; i++) {
+                    // console.log("Processing move");
+                    processMove(message.moves[i]);
+                }
+            } else if (message.type == "gameState") {
+                console.log("Got gameState update");
+                gameState = message.gameState;
+                processGameStateUpdate();
+            } else if (message.type == "playerinfo") { //Info on the current player (i.e. user on this page)
+                console.log("Got player info msg");
+                console.log(message);
+                player = message.player;
+                if (gameState) {
+                    processGameStateUpdate();
+                }
+                //Includes player.playernum for the player ID (0, 1, 2, 3, etc)
+            } else if (message.type == "chooseword") {
+                forceClearCanvas();
+
+                console.log("Server asked to choose a word");
+                console.log(message);
+                var words = document.querySelectorAll(".word_button .word");
+                for (var i = 0; i < 4; i++) {
+                    words[i].innerHTML = message.words[i + 1];
+                }
+                console.log("Going to remove class");
+                document.querySelector(".choose_word_wrapper").classList.remove("hidden");
+                console.log("REmoved class");
+            } else if (message.type == "correctguess") {
+                //TODO: Add a "you got X points" in with the message?
+                //TODO: Maybe tell the player they guessed correctly?
+                // alert("You correctly guessed the word!");
+                pointsThisRound = message.points;
+                placeThisRound = message.place;
+            } else if (message.type == "revealword") {
+                //message.word
+                // alert("The word was " + message.word);
+                console.log("Word revealed");
+                displayRoundEndScores(message.word, message.gameover);
+                //TODO: Fix this ^^^
+                //TODO: Show a different message other than "the word was" if you are the drawer?
+            } else if (message.type == "hidescores") {
+                console.log("Hiding scores");
+                pointsThisRound = 0;
+                hideRoundEndScores();
+            } else if (message.type == "clearcanvas") {
+                forceClearCanvas();
+            }
+        }
+
+        var canvas;
+        var ctx;
+
+        //TODO: Add eraser? Clear canvas button?
+
+        var mousetracker;
+
+        var resizeRedrawTimeout;
+        window.onload = function() {
+
+            canvas = document.querySelector("#maincanvas");
+            ctx = canvas.getContext('2d');
+
+            // canvas.onmousemove = function(e) {
+            window.onmousemove = function(e) {
+                // console.log(e.pageX + ", " + e.pageY);
+                // console.log(e);
+                if (e.which == 1 && isDrawing) {
+                    console.log("Drawingg");
+
+                    handleTouchTick(e);
+                }
+                // e.preventDefault();
+            }
+
+            // canvas.onmousedown = function(e) {
+            window.onmousedown = function(e) {
+                // console.log("Mouse down");
+                // mousetracker = setInterval(handleTouchTick)
+                // console.log(e);
+                if (isDrawing) {
+                    ctx.beginPath();
+                    addMove({
+                        type: "beginPath"
+                    });
+                }
+                // e.preventDefault();
+            }
+            // canvas.onmouseup = function(e) {
+            window.onmouseup = function(e) {
+                if (isDrawing) {
+                    ctx.closePath();
+                    addMove({
+                        type: "closePath"
+                    });
+                }
+                // e.preventDefault();
+            }
+
+            // canvas.ontouchstart = function(e) {
+            window.ontouchstart = function(e) {
+                console.log("touch");
+                // console.log(e);
+                // console.log("Touch start");
+                if (isDrawing) {
+                    ctx.beginPath();
+                    addMove({
+                        type: "beginPath"
+                    });
+                }
+                // e.preventDefault();
+            }
+
+            // window.ontouchmove = function(e) {
+            //     e.preventDefault();
+            // }
+
+            // canvas.ontouchmove = function(e) {
+            window.ontouchmove = function(e) {
+                // console.log("Touch move");
+                // console.log(e);
+                if (isDrawing) {
+                    handleTouchTick(e.touches[0]);
+                }
+                //TODO: Why is my laptop touchscreen only working if Chrome loads the page in device emulator mode
+                //TODO: Check which touch is on the canvas and use that?
+                // e.preventDefault();
+                // alert("moved");
+            }
+            // canvas.ontouchend = function(e) {
+            window.ontouchend = function(e) {
+                // console.log("Touch end");
+                if (isDrawing) {
+                    ctx.closePath();
+                    addMove({
+                        type: "closePath"
+                    });
+                }
+                // e.preventDefault();
+            }
+            setLineWidth(2);
+            setStrokeStyle("black");
+            setInterval(sendDrawingUpdates, 100);
+            // setInterval(sendDrawingUpdates, 100000);
+
+            //NEXT STEPS: Send gamestate to all clients and keep track of who is the drawer
+            //Maybe reject drawings from other players server-side?
+            window.onresize();
+            setInterval(recalculateProgressBar, 50);
+        }
+        //TODO: Widescreen (around 16x9) layout with drawing on left and guesses on right?
+
+
+        GameClient.onDeregister = function(details) {
+            // document.body.innerHTML += "<br>" + JSON.stringify(details);
+            document.querySelector(".registration_notice").style.display = "flex";
+            document.querySelector(".registration_error").innerHTML = details.err_code;
+        }
+    </script>
+</head>
+
+<body>
+    <div class="round_end_info_wrapper hidden">
+        <div class="round_end_info">
+            <div class="word_reveal">
+                <div class="word_reveal_header">The word was</div>
+                <div class="word_reveal_word">Wordhere</div>
+                <div class="word_reveal_points">You got 500 points</div>
+            </div>
+            <div class="player_scores">
+                <div class="player_score">
+                    <img src="https://i.postimg.cc/vTX4vNW6/square.png" class="player_img">
+                    <div class="player_name">First Last</div>
+                    <div class="player_scoreval">1400</div>
+                </div>
+                <div class="player_score you">
+                    <img src="https://i.postimg.cc/vTX4vNW6/square.png" class="player_img">
+                    <div class="player_name">First Last</div>
+                    <div class="player_scoreval">1400</div>
+                </div>
+                <div class="player_score">
+                    <img src="https://i.postimg.cc/vTX4vNW6/square.png" class="player_img">
+                    <div class="player_name">First Last</div>
+                    <div class="player_scoreval">1400</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="choose_word_wrapper hidden">
+        <div class="choose_word">
+            <h2>Choose a word to draw</h2>
+            <div class="word_button easy" data-value="1" onclick="chooseWord(event);">
+                <div class="word_type">Easy (10 points per guess)</div>
+                <div class="word">chicken</div>
+            </div>
+            <div class="word_button medium" data-value="2" onclick="chooseWord(event);">
+                <div class="word_type">Medium (20 points per guess)</div>
+                <div class="word">flamingo</div>
+            </div>
+            <div class="word_button hard" data-value="3" onclick="chooseWord(event);">
+                <div class="word_type">Hard (30 points per guess)</div>
+                <div class="word">tide</div>
+            </div>
+            <div class="word_button superhard" data-value="4" onclick="chooseWord(event);">
+                <div class="word_type">Super Hard (40 points per guess)</div>
+                <div class="word">cashier</div>
+            </div>
+        </div>
+    </div>
+    <div class="players_overlay_wrapper">
+        <div class="players_overlay">
+            <h2>Waiting for players...</h2>
+            <!-- Change this to "Press [button] to start" once others join -->
+            <div class="player_list">
+
+            </div>
+            <div class="start_button inactive" onclick="startGame(event);">
+                Start Game
+            </div>
+        </div>
+    </div>
+    <div class="registration_notice" style="display: none;">
+        <span class="registration_error">
+
+        </span>
+    </div>
+
+
+    <div class="wrapper">
+        <div class="canvaswrapper">
+            <div class="canvasinfotext">
+                <div class="progress"></div>
+                <div class="drawer">So-and-so is drawing</div>
+                <div class="hint">_ _ _ _ _ _ _</div>
+            </div>
+            <canvas id="maincanvas" width="300" height="300"></canvas>
+        </div>
+        <div class="guesses">
+
+        </div>
+    </div>
+    <div class="enterguess">
+        <input type="text" id="guessfield" placeholder="Enter a guess" onkeydown="handleInputKey(event);">
+    </div>
+    <div class="drawingtools hidden">
+
+        <div class="swatch" onclick="selectSwatch(event);" data-color="#ff5454"></div>
+        <div class="swatch" onclick="selectSwatch(event);" data-color="#ff9354"></div>
+        <div class="swatch" onclick="selectSwatch(event);" data-color="#fffc54"></div>
+        <div class="swatch" onclick="selectSwatch(event);" data-color="#54ff5d"></div>
+        <div class="swatch" onclick="selectSwatch(event);" data-color="#5479ff"></div>
+        <div class="swatch selected" onclick="selectSwatch(event);" data-color="#000000"></div>
+        <!-- <div class="swatch" onclick="selectSwatch(event);" data-color="#ffffff"></div> -->
+        <div class="swatch eraser_swatch" onclick="selectSwatch(event);" data-color="eraser"></div>
+        <div class="clear_swatch" onclick="clearCanvas(event);" data-color="clear"></div>
+    </div>
+</body>
+
+</html>
