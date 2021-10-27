@@ -3,7 +3,10 @@ True multiplayer games in Telegram!
 
 @ConnectaVisionBot is a first-of-its-kind Telegram bot that lets you play multiplayer games LIVE with your friends! While previous gaming implementations on Telegram were independent (i.e. players play the game independently and see each others scores afterward), this is the first Telegram bot (as far as I know) that allows players to play together live.
 
-## Getting up and running
+## How to use it!
+Enter @ConnectaVisionBot into the text field on any Telegram conversation to bring up a list of games you can play. Note: If it hasn't been used in a while, it may take up to 30 seconds for the games list to load.
+
+## Running it yourself
 The open-source version of Connectavision doesn't include Telegram API tokens. In order to run Connectavision yourself, you'll need to [create a bot](https://www.siteguarding.com/en/how-to-get-telegram-bot-api-token) and get its API token. Create a file named `token.js` in the root directory and put the following inside it:
 
 ```js
